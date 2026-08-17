@@ -1,0 +1,37 @@
+name: Build Image
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+concurrency:
+  group: build-image
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u x -p --password-stdin
+
+      - name: Build and push image
+        env:
+          REGISTRY: ghcr.io
+        run: |
+          set -euo pipefail
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          IMAGE="${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/${REPO_NAME}"
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            TAG="main"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          docker build --pull --tag "${IMAGE}:${TAG}" .
+          docker push "${IMAGE}:${TAG}"
